@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Balance de raciones – Pollos</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:14px; background:#f6f7fb;}
+.container{max-width:1100px; margin:0 auto; background:#fff; padding:16px; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.06);}
+h1{margin:0 0 6px 0; font-size:20px;}
+.small{color:#555; font-size:13px; margin-bottom:10px;}
+.controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;}
+.select,.num,.text{padding:8px; border-radius:8px; border:1px solid #cfd3dc;}
+.button{padding:8px 12px; border-radius:8px; border:1px solid #cfd3dc; background:#0f62fe; color:#fff; cursor:pointer;}
+.button.ghost{background:#fff; color:#0f62fe;}
+.button.danger{background:#de1b47; color:#fff;}
+table{border-collapse:collapse; width:100%; font-size:14px; margin-top:6px;}
+th,td{border:1px solid #e7e9ef; padding:8px; text-align:center;}
+th{background:#f2f4f8; font-weight:600;}
+.ok{background:#e7f7eb;}
+.bad{background:#fde7ea;}
+.row-ingred{display:flex; gap:8px; align-items:center; margin-top:6px; font-size:14px;}
+.footer-note{margin-top:8px; font-size:12px; color:#666;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Balance rápido – Pollo de engorde</h1>
+  <div class="small">Etapa → añade ingredientes → ajusta % → compara con requerimientos. Sin abreviaturas (ej.: “Metionina + Cistina”).</div>
+
+  <div class="controls">
+    <label>Etapa:
+      <select id="etapa" class="select"></select>
+    </label>
+    <label>Buscar ingrediente:
+      <input id="buscar" class="text" placeholder="Escribe para filtrar...">
+    </label>
+    <button id="add" class="button">Agregar</button>
+    <button id="reset" class="button danger">Reset</button>
+  </div>
+
+  <div style="margin:6px 0;">
+    <span class="small">Fórmulas rápidas: </span>
+    <button class="button ghost" data-preset="Económica">Económica</button>
+    <button class="button ghost" data-preset="Estándar">Estándar</button>
+    <button class="button ghost" data-preset="Premium">Premium</button>
+  </div>
+
+  <div id="list"></div>
+
+  <h3>Ingredientes en fórmula (%)</h3>
+  <table id="tblIng">
+    <thead>
+      <tr>
+        <th>Ingrediente</th>
+        <th>% en dieta</th>
+        <th>Energía (kcal/kg)</th>
+        <th>Proteína (%)</th>
+        <th>Lisina (%)</th>
+        <th>Metionina + Cistina (%)</th>
+        <th>Calcio (%)</th>
+        <th>Fósforo disponible (%)</th>
+        <th>Sodio (%)</th>
+        <th>Quitar</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3 style="margin-top:12px;">Comparación con requerimiento</h3>
+  <table id="tblComp">
+    <thead>
+      <tr>
+        <th>Nutriente</th>
+        <th>Requerido</th>
+        <th>Aporte fórmula</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="footer-note">La fórmula se normaliza internamente para sumar 100%. Puedes añadir/quitar ingredientes libremente.</div>
+</div>
+
+<script>
+const ING = [{"nombre": "Ma\u00edz amarillo", "energia": 3350, "proteina": 8.5, "lisina": 0.26, "met_cys": 0.46, "calcio": 0.02, "fosforo_disp": 0.08, "sodio": 0.02}, {"nombre": "Harina de soya 44%", "energia": 2450, "proteina": 44.0, "lisina": 2.7, "met_cys": 3.1, "calcio": 0.29, "fosforo_disp": 0.65, "sodio": 0.02}, {"nombre": "Harina de pescado", "energia": 2800, "proteina": 60.0, "lisina": 4.5, "met_cys": 3.0, "calcio": 5.0, "fosforo_disp": 3.0, "sodio": 1.5}, {"nombre": "Aceite vegetal", "energia": 8800, "proteina": 0.0, "lisina": 0.0, "met_cys": 0.0, "calcio": 0.0, "fosforo_disp": 0.0, "sodio": 0.0}, {"nombre": "Carbonato de calcio", "energia": 0, "proteina": 0.0, "lisina": 0.0, "met_cys": 0.0, "calcio": 38.0, "fosforo_disp": 0.0, "sodio": 0.0}, {"nombre": "Fosfato dic\u00e1lcico", "energia": 0, "proteina": 0.0, "lisina": 0.0, "met_cys": 0.0, "calcio": 23.0, "fosforo_disp": 18.5, "sodio": 0.0}, {"nombre": "Sal com\u00fan", "energia": 0, "proteina": 0.0, "lisina": 0.0, "met_cys": 0.0, "calcio": 0.0, "fosforo_disp": 0.0, "sodio": 39.0}, {"nombre": "Premezcla vit-min", "energia": 0, "proteina": 0.0, "lisina": 0.0, "met_cys": 0.0, "calcio": 0.0, "fosforo_disp": 0.0, "sodio": 0.0}];
+const REQ = {"Starter (0\u20133 semanas)": {"energia": 2900, "proteina": 23.0, "lisina": 1.1, "met_cys": 0.9, "calcio": 1.0, "fosforo_disp": 0.45, "sodio": 0.2}, "Grower (3\u20136 semanas)": {"energia": 3000, "proteina": 21.0, "lisina": 1.0, "met_cys": 0.8, "calcio": 0.9, "fosforo_disp": 0.4, "sodio": 0.18}, "Finisher (6\u20137+ semanas)": {"energia": 3100, "proteina": 19.0, "lisina": 0.9, "met_cys": 0.75, "calcio": 0.85, "fosforo_disp": 0.38, "sodio": 0.17}};
+const PRESETS = {"Econ\u00f3mica": [{"nombre": "Ma\u00edz amarillo", "pct": 60}, {"nombre": "Harina de soya 44%", "pct": 35}, {"nombre": "Carbonato de calcio", "pct": 1.0}, {"nombre": "Fosfato dic\u00e1lcico", "pct": 0.9}, {"nombre": "Sal com\u00fan", "pct": 0.3}, {"nombre": "Premezcla vit-min", "pct": 0.8}, {"nombre": "Aceite vegetal", "pct": 2.0}], "Est\u00e1ndar": [{"nombre": "Ma\u00edz amarillo", "pct": 55}, {"nombre": "Harina de soya 44%", "pct": 36}, {"nombre": "Harina de pescado", "pct": 4}, {"nombre": "Aceite vegetal", "pct": 2}, {"nombre": "Carbonato de calcio", "pct": 1.0}, {"nombre": "Fosfato dic\u00e1lcico", "pct": 0.8}, {"nombre": "Sal com\u00fan", "pct": 0.3}, {"nombre": "Premezcla vit-min", "pct": 0.9}], "Premium": [{"nombre": "Ma\u00edz amarillo", "pct": 52}, {"nombre": "Harina de soya 44%", "pct": 38}, {"nombre": "Harina de pescado", "pct": 5}, {"nombre": "Aceite vegetal", "pct": 2.5}, {"nombre": "Carbonato de calcio", "pct": 1.0}, {"nombre": "Fosfato dic\u00e1lcico", "pct": 0.9}, {"nombre": "Sal com\u00fan", "pct": 0.3}, {"nombre": "Premezcla vit-min", "pct": 0.3}]};
+
+const etapaSel = document.getElementById('etapa');
+Object.keys(REQ).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; etapaSel.appendChild(o); });
+etapaSel.value = "Starter (0–3 semanas)";
+
+const buscar = document.getElementById('buscar');
+const addBtn = document.getElementById('add');
+const resetBtn = document.getElementById('reset');
+const listDiv = document.getElementById('list');
+const tbIng = document.querySelector('#tblIng tbody');
+const tbComp = document.querySelector('#tblComp tbody');
+
+let formula = [];
+
+function renderLista(){
+  const q = (buscar.value||'').toLowerCase();
+  listDiv.innerHTML = '';
+  ING.filter(i=>i.nombre.toLowerCase().includes(q)).slice(0,20).forEach(i=>{
+    const row = document.createElement('div');
+    row.className = 'row-ingred';
+    row.innerHTML = `<div style="flex:1">${i.nombre} <span style="color:#666"> (E: ${i.energia} kcal, Prot: ${i.proteina}%)</span></div>`;
+    const b = document.createElement('button');
+    b.className = 'button';
+    b.textContent = 'Agregar';
+    b.onclick = () => addIngred(i.nombre);
+    row.appendChild(b);
+    listDiv.appendChild(row);
+  })
+}
+buscar.addEventListener('input', renderLista);
+renderLista();
+
+function addIngred(nombre, pct=5){
+  const data = ING.find(x=>x.nombre===nombre);
+  if(!data) return;
+  const exist = formula.find(f=>f.nombre===nombre);
+  if(exist){ exist.pct += pct; renderIng(); return; }
+  formula.push({nombre:nombre, pct:pct, ing:data});
+  renderIng();
+}
+
+addBtn.onclick = () => {
+  const q = buscar.value.trim();
+  if(!q) return alert('Escribe o elige de la lista un ingrediente.');
+  let ing = ING.find(i=>i.nombre.toLowerCase()===q.toLowerCase()) || ING.find(i=>i.nombre.toLowerCase().includes(q.toLowerCase()));
+  if(!ing) return alert('Ingrediente no encontrado.');
+  addIngred(ing.nombre, 5);
+};
+
+resetBtn.onclick = () => { formula = []; renderIng(); };
+
+document.querySelectorAll('[data-preset]').forEach(btn=>{
+  btn.onclick = () => {
+    const key = btn.getAttribute('data-preset');
+    const preset = PRESETS[key] || [];
+    formula = [];
+    preset.forEach(p=> addIngred(p.nombre, p.pct));
+  }
+});
+
+function renderIng(){
+  let s = formula.reduce((a,b)=>a+Number(b.pct),0) || 1;
+  formula.forEach(f=> f.p = f.pct / s * 100);
+
+  tbIng.innerHTML='';
+  formula.forEach((f,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${f.nombre}</td>
+      <td><input type="number" class="num" step="0.1" value="${f.pct}" data-i="${i}" style="width:80px"></td>
+      <td>${f.ing.energia.toFixed(0)}</td>
+      <td>${f.ing.proteina.toFixed(2)}</td>
+      <td>${f.ing.lisina.toFixed(3)}</td>
+      <td>${f.ing.met_cys.toFixed(3)}</td>
+      <td>${f.ing.calcio.toFixed(3)}</td>
+      <td>${f.ing.fosforo_disp.toFixed(3)}</td>
+      <td>${f.ing.sodio.toFixed(3)}</td>
+      <td><button class="button danger" data-rm="${i}">Quitar</button></td>`;
+    tbIng.appendChild(tr);
+  });
+
+  document.querySelectorAll('input[data-i]').forEach(inp=>{
+    inp.onchange = (e)=>{
+      const i = Number(e.target.getAttribute('data-i'));
+      formula[i].pct = Number(e.target.value);
+      renderIng();
+    }
+  });
+  document.querySelectorAll('button[data-rm]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = Number(btn.getAttribute('data-rm'));
+      formula.splice(i,1);
+      renderIng();
+    }
+  });
+
+  renderComp();
+}
+
+function renderComp(){
+  const stage = etapaSel.value;
+  const req = REQ[stage];
+  const tot = {energia:0, proteina:0, lisina:0, met_cys:0, calcio:0, fosforo_disp:0, sodio:0};
+  formula.forEach(f=>{
+    const p = f.p/100.0;
+    tot.energia += f.ing.energia * p;
+    tot.proteina += f.ing.proteina * p;
+    tot.lisina += f.ing.lisina * p;
+    tot.met_cys += f.ing.met_cys * p;
+    tot.calcio += f.ing.calcio * p;
+    tot.fosforo_disp += f.ing.fosforo_disp * p;
+    tot.sodio += f.ing.sodio * p;
+  });
+  const rows = [
+    ["Energía metabolizable (kcal/kg)", "energia", "kcal/kg"],
+    ["Proteína cruda (%)", "proteina", "%"],
+    ["Lisina (%)", "lisina", "%"],
+    ["Metionina + Cistina (%)", "met_cys", "%"],
+    ["Calcio (%)", "calcio", "%"],
+    ["Fósforo disponible (%)", "fosforo_disp", "%"],
+    ["Sodio (%)", "sodio", "%"]
+  ];
+  tbComp.innerHTML='';
+  rows.forEach(([lab,key,u])=>{
+    const reqV = req[key]; const ap = tot[key] || 0;
+    const ok = ap >= reqV;
+    const tr = document.createElement('tr');
+    tr.className = ok? 'ok':'bad';
+    tr.innerHTML = `<td style="text-align:left">${lab}</td><td>${reqV.toFixed(2)} ${u}</td><td>${ap.toFixed(2)} ${u}</td><td>${ok? '✅ Cumple':'❌ No cumple'}</td>`;
+    tbComp.appendChild(tr);
+  });
+}
+
+etapaSel.onchange = renderComp;
+(function init(){ PRESETS["Estándar"].forEach(p=> addIngred(p.nombre, p.pct)); })();
+</script>
+</body>
+</html>
