@@ -1,4 +1,4 @@
-<!doctype html>
+!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -9,11 +9,11 @@
 <style>
   :root{--ok:#16a34a;--bad:#dc2626;--bg:#f7f7fb}
   *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg)}
-  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
   h1{margin:0 0 12px;font-size:20px}
   .panel{background:#fff;border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
   .row{display:grid;gap:16px}
-  @media(min-width:900px){.row{grid-template-columns:310px 1fr}}
+  @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
   label{font-size:12px;color:#444;margin-bottom:6px;display:block}
   input,select,button{font:inherit}
   input[type="number"],input[type="text"],select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px}
@@ -22,16 +22,19 @@
   .btn.danger{background:#ef4444}
   .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
   .ok{background:#e8f7ee;color:#126b36} .bad{background:#fdeaea;color:#a11212}
-  table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border-radius:12px;overflow:hidden}
-  th,td{padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:12px;overflow:hidden}
+  th,td{padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;vertical-align:top}
   th:first-child,td:first-child{text-align:left}
-  tfoot td{font-weight:600;background:#fafafa}
   .hint{font-size:12px;color:#555}
   .pill{padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e5e5e5;display:inline-flex;gap:8px;align-items:center}
   .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
   .bar{height:8px;background:#eee;border-radius:999px;overflow:hidden}
   .bar>i{display:block;height:100%;background:#2563eb}
   .mini{font-size:12px;color:#666}
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal .box{background:#fff;max-width:720px;width:100%;border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 </style>
 </head>
 <body>
@@ -54,16 +57,29 @@
         </div>
       </div>
 
-      <div style="margin-top:12px">
-        <label>Buscar ingrediente</label>
-        <input id="busca" type="text" placeholder="Escribe para filtrar…">
-        <div id="lista" style="margin-top:8px;display:grid;gap:6px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+        <div>
+          <label>Buscar ingrediente</label>
+          <input id="busca" type="text" placeholder="Escribe para filtrar…">
+          <div id="lista" style="margin-top:8px;display:grid;gap:6px"></div>
+        </div>
+        <div>
+          <label>Premezcla Vit-Min</label>
+          <select id="premixSel">
+            <option value="std">Estándar local (0,5%)</option>
+            <option value="eco">Económica (0,5%)</option>
+            <option value="org">Orgánica/Eco (0,5%)</option>
+            <option value="pers">Personalizada (%)</option>
+          </select>
+          <p class="mini" id="premixNota" style="margin-top:8px">Recomendado 0,5–1,0%. No sustituye Ca/P/Na.</p>
+        </div>
       </div>
 
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn out" id="preset-std">Cargar fórmula Estándar</button>
         <button class="btn out" id="autocompletar">Auto-completar con Maíz</button>
         <button class="btn out" id="normalizar">Normalizar %</button>
+        <button class="btn out" id="sugerir">Sugerir ajustes</button>
         <button class="btn" id="descargar">Descargar PDF</button>
         <label class="pill" style="margin-top:8px;display:inline-flex">
           <input type="checkbox" id="expert" style="margin-right:6px">
@@ -71,22 +87,23 @@
         </label>
       </div>
 
-      <p class="hint" style="margin-top:10px">Tip: edita los % y verás los kg al instante. “Editar valores” si tu ingrediente local tiene otras garantías.</p>
+      <p class="hint" style="margin-top:10px">Tip: edita los % y verás los kg y el costo. Marca “Disponible” y pon **€/kg** para mejores sugerencias.</p>
     </div>
 
     <div class="panel">
       <div id="estado" class="pill warn" style="margin-bottom:10px">Revisa los porcentajes…</div>
-
       <div class="bar" style="margin-bottom:8px"><i id="bar" style="width:0%"></i></div>
-      <div class="mini">Suma de %: <span id="sumaPct">0</span>% (<span id="sumaKg">0</span> kg)</div>
+      <div class="mini">Suma de %: <span id="sumaPct">0</span>% (<span id="sumaKg">0</span> kg) · Costo estimado: € <span id="costototal">0.00</span></div>
 
       <div style="overflow:auto;margin-top:8px">
         <table id="tabla">
           <thead>
             <tr>
               <th>Ingrediente</th>
-              <th>% en dieta</th>
+              <th>%</th>
               <th>Kg</th>
+              <th>€/kg</th>
+              <th>Disp.</th>
               <th>Energía</th>
               <th>Proteína</th>
               <th>Lisina</th>
@@ -107,6 +124,21 @@
   </div>
 </div>
 
+<!-- Modal sugerencias -->
+<div class="modal" id="modal">
+  <div class="box">
+    <div class="flex" style="justify-content:space-between">
+      <h3 style="margin:0">Sugerencias de ajuste</h3>
+      <button class="btn danger" onclick="cerrarModal()">Cerrar</button>
+    </div>
+    <div id="sugBody" style="margin-top:8px"></div>
+    <div style="margin-top:12px" class="flex">
+      <button class="btn" id="aplicarSug">Aplicar sugerencias</button>
+      <span class="mini">Se respetan límites y disponibilidad; prioriza menor costo.</span>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== Base de ingredientes (valores típicos; editables por fila) =====
 const LIB = [
@@ -119,6 +151,11 @@ const LIB = [
  {id:'sal', n:'Sal común', E:0, Prot:0, Lys:0, MetCys:0, Ca:0.00, Pdisp:0.00, Na:39.00},
  {id:'premix', n:'Premezcla vit-min', E:0, Prot:0, Lys:0, MetCys:0, Ca:0.00, Pdisp:0.00, Na:0.00}
 ];
+
+// Precios de referencia (puedes cambiarlos)
+const PRECIOS = {
+  maiz:0.30, soya44:0.55, pescado:1.20, aceite:1.10, caco3:0.08, fdical:0.85, sal:0.10, premix:2.50
+};
 
 // ===== Requerimientos por etapa (referencia práctica) =====
 const REQ = {
@@ -167,11 +204,9 @@ let especie = 'pollo';
 // ===== Estado de la fórmula =====
 let totalKg = 100;
 let etapa = 'starter';
-let filas = []; // {id, n, pct, vals:{E,Prot,Lys,MetCys,Ca,Pdisp,Na}}
+let filas = []; // {id, n, pct, precio, disp, vals:{...}}
 
-function getLimitesActuales(){
-  return LIMITES[especie][etapa] || {};
-}
+function getLimitesActuales(){ return LIMITES[especie][etapa] || {}; }
 
 // fórmula estándar
 function presetStd(){
@@ -183,13 +218,13 @@ function presetStd(){
   addRow('caco3',1),
   addRow('fdical',0.8),
   addRow('sal',0.3),
-  addRow('premix',0.9)
+  addRow('premix',0.5) // 0,5% por defecto
  ];
  render();
 }
 function addRow(id, pct=0){
  const base = LIB.find(x=>x.id===id);
- return { id:base.id, n:base.n, pct:Number(pct),
+ return { id:base.id, n:base.n, pct:Number(pct), precio:PRECIOS[id]??0, disp:true,
           vals:{E:base.E, Prot:base.Prot, Lys:base.Lys, MetCys:base.MetCys, Ca:base.Ca, Pdisp:base.Pdisp, Na:base.Na}};
 }
 
@@ -206,6 +241,7 @@ function renderLista(filtro=''){
     });
 }
 function agregar(id){
+ if(filas.some(f=>f.id===id)) return alert('Ya está en la tabla.');
  filas.push(addRow(id,0));
  render();
 }
@@ -222,8 +258,10 @@ function render(){
    const tr=document.createElement('tr');
    tr.innerHTML = `
      <td>${f.n}<div class="mini" style="color:#666">${lim.nota}</div></td>
-     <td><input type="number" min="${lim.min}" max="${lim.max}" step="0.1" value="${f.pct}" style="width:90px" oninput="chgPct(${i},this.value)"></td>
+     <td><input type="number" min="${lim.min}" max="${lim.max}" step="0.1" value="${f.pct}" style="width:80px" oninput="chgPct(${i},this.value)"></td>
      <td>${kg.toFixed(2)}</td>
+     <td><input type="number" step="0.01" value="${f.precio}" style="width:90px" oninput="chgPrecio(${i},this.value)"></td>
+     <td><input type="checkbox" ${f.disp?'checked':''} onclick="chgDisp(${i},this.checked)"></td>
      <td>${f.vals.E}</td>
      <td>${f.vals.Prot}</td>
      <td>${f.vals.Lys}</td>
@@ -240,6 +278,8 @@ function render(){
  actualizarEstado();
  renderReq();
 }
+function chgPrecio(i,v){ filas[i].precio = Math.max(0, Number(v||0)); actualizarEstado(); }
+function chgDisp(i,v){ filas[i].disp = !!v; }
 function chgPct(i,v){
   const x = Number(v||0);
   const limMap = getLimitesActuales();
@@ -255,7 +295,7 @@ function chgPct(i,v){
 function quitar(i){ filas.splice(i,1); render(); }
 function editar(i){
   const f=filas[i];
-  const p = prompt(`Editar valores de ${f.n} (E;Prot;Lisina;Met+Cist;Ca;Pdisp;Na)\nValores actuales: ${f.vals.E};${f.vals.Prot};${f.vals.Lys};${f.vals.MetCys};${f.vals.Ca};${f.vals.Pdisp};${f.vals.Na}`);
+  const p = prompt(`Editar valores de ${f.n} (E;Prot;Lisina;Met+Cist;Ca;Pdisp;Na)\nActual: ${f.vals.E};${f.vals.Prot};${f.vals.Lys};${f.vals.MetCys};${f.vals.Ca};${f.vals.Pdisp};${f.vals.Na}`);
   if(!p) return;
   const a=p.split(';').map(x=>Number(x.trim()));
   if(a.length===7 && a.every(x=>!Number.isNaN(x))){
@@ -264,12 +304,14 @@ function editar(i){
   } else alert('Formato inválido. Usa 7 números separados por punto y coma.');
 }
 
-// ===== Estado % y kg =====
+// ===== Estado % / kg / costo =====
 function actualizarEstado(){
   const sumPct = filas.reduce((s,f)=>s+Number(f.pct||0),0);
   const sumKg  = sumPct*totalKg/100;
+  const costo  = filas.reduce((s,f)=> s + (f.pct*totalKg/100)* (Number(f.precio)||0), 0);
   document.getElementById('sumaPct').textContent = sumPct.toFixed(2);
   document.getElementById('sumaKg').textContent  = sumKg.toFixed(2);
+  document.getElementById('costototal').textContent = costo.toFixed(2);
   document.getElementById('bar').style.width = Math.min(sumPct,100)+'%';
 
   let msg='', cls='pill';
@@ -289,22 +331,19 @@ function actualizarEstado(){
   est.textContent = msg; est.className = cls;
 }
 
-// Autocompletar con maíz
+// Autocompletar con maíz (respetando límites si no es experto)
 document.getElementById('autocompletar').onclick = ()=>{
   const sumPct = filas.reduce((s,f)=>s+Number(f.pct||0),0);
   const falt = 100 - sumPct;
   if(falt<=0) return render();
   let maiz = filas.find(f=>f.id==='maiz');
   if(!maiz){ maiz = addRow('maiz',0); filas.push(maiz); }
-  // respetar máximo si no es experto
   const expert = document.getElementById('expert')?.checked;
   if(!expert){
     const lim = getLimitesActuales().maiz || {min:0,max:100};
     const posible = Math.min(falt, Math.max(0, lim.max - (maiz.pct||0)));
     maiz.pct += posible;
-  } else {
-    maiz.pct += falt;
-  }
+  } else maiz.pct += falt;
   render();
 };
 // Normalizar %
@@ -314,6 +353,22 @@ document.getElementById('normalizar').onclick = ()=>{
   filas.forEach(f=>f.pct = f.pct*100/sumPct);
   render();
 };
+
+// ===== Premix selector =====
+document.getElementById('premixSel').addEventListener('change', e=>{
+  const v = e.target.value;
+  const premix = filas.find(f=>f.id==='premix') || addRow('premix',0);
+  if(!filas.find(f=>f.id==='premix')) filas.push(premix);
+  const lims = getLimitesActuales().premix || {min:0.5,max:1.0};
+  let nota = "Recomendado 0,5–1,0%. No sustituye Ca/P/Na.";
+  if(v==='pers'){
+    nota = "Personaliza el % (respetando 0,5–1,0% salvo Modo experto).";
+  } else {
+    premix.pct = Math.min(lims.max, Math.max(lims.min, 0.5));
+  }
+  document.getElementById('premixNota').textContent = nota;
+  render();
+});
 
 // ===== Cálculo de aporte y comparación =====
 function aporte(){
@@ -356,6 +411,130 @@ function renderReq(){
       </div>`;
   }
 }
+
+// ===== Sugerencias (disponibilidad + precio + límites) =====
+const modal = document.getElementById('modal');
+const sugBody = document.getElementById('sugBody');
+let sugerenciasAplicables = null;
+
+document.getElementById('sugerir').onclick = ()=>{
+  const r = REQ[etapa], a = aporte();
+  const deficits = [];
+  if(a.E < r.EM) deficits.push({k:'E', nombre:'Energía (kcal/kg)', falta:r.EM - a.E});
+  if(a.Prot < r.Prot) deficits.push({k:'Prot', nombre:'Proteína (%)', falta:r.Prot - a.Prot});
+  if(a.Lys < r.Lys) deficits.push({k:'Lys', nombre:'Lisina (%)', falta:r.Lys - a.Lys});
+  if(a.MC < r.MetCys) deficits.push({k:'MC', nombre:'Metionina + Cistina (%)', falta:r.MetCys - a.MC});
+  if(a.Ca < r.Ca) deficits.push({k:'Ca', nombre:'Calcio (%)', falta:r.Ca - a.Ca});
+  if(a.Pd < r.Pdisp) deficits.push({k:'Pd', nombre:'Fósforo disp. (%)', falta:r.Pdisp - a.Pd});
+  if(a.Na < r.Na) deficits.push({k:'Na', nombre:'Sodio (%)', falta:r.Na - a.Na});
+
+  let txt = '';
+  sugerenciasAplicables = [];
+
+  const limMap = getLimitesActuales();
+  const expert = document.getElementById('expert')?.checked;
+
+  function room(f){
+    const lim = limMap[f.id] || {min:0,max:100};
+    return expert ? Infinity : Math.max(0, lim.max - (f.pct||0));
+  }
+  function addSug(id, deltaPct){
+    if(deltaPct<=0) return;
+    sugerenciasAplicables.push({id, deltaPct});
+  }
+
+  // candidatos ordenados por €/kg (asc) y disponibilidad
+  const cand = (ids)=> ids.map(id=>filas.find(f=>f.id===id)).filter(f=>f && f.disp).sort((a,b)=>(a.precio||0)-(b.precio||0));
+
+  deficits.forEach(d=>{
+    if(d.k==='E'){
+      // energía: maíz, aceite
+      let falt = d.falta;
+      const lista = cand(['maiz','aceite']);
+      lista.forEach(f=>{
+        if(falt<=0) return;
+        // conversión aproximada: subir 1% maíz ≈ +33.5 kcal/kg (aprox sobre base 100); aceite ≈ +88 kcal/kg
+        const gainPerPct = (f.id==='aceite') ? 88 : 33.5;
+        const needPct = Math.min(room(f), Math.ceil((falt/gainPerPct)*10)/10);
+        if(needPct>0){ addSug(f.id, needPct); falt -= needPct*gainPerPct; }
+      });
+      if(falt>0) txt += `<p>• Energía: falta ≈ ${falt.toFixed(0)} kcal/kg aún; revisa límites o activa Modo experto.</p>`;
+    }
+    if(d.k==='Prot' || d.k==='Lys' || d.k==='MC'){
+      // proteína/aa: soya (barata), pescado (inicio, más caro)
+      let falt = d.falta;
+      const lista = cand(['soya44','pescado']);
+      lista.forEach(f=>{
+        if(falt<=0) return;
+        const gainPerPct = (d.k==='Prot') ? f.vals.Prot/100 : (d.k==='Lys'? f.vals.Lys/100 : f.vals.MetCys/100);
+        // aproximación: subir 1% del ingrediente aporta gainPerPct puntos %
+        const needPct = gainPerPct>0 ? Math.min(room(f), Math.ceil((falt/gainPerPct)*10)/10) : 0;
+        if(needPct>0){ addSug(f.id, needPct); falt -= needPct*gainPerPct; }
+      });
+      if(falt>0) txt += `<p>• ${d.nombre}: aún faltan ≈ ${falt.toFixed(3)} %. Considera otro proteico o activa Modo experto.</p>`;
+    }
+    if(d.k==='Ca'){
+      let falt = d.falta;
+      const lista = cand(['caco3','fdical']);
+      lista.forEach(f=>{
+        if(falt<=0) return;
+        const gainPerPct = f.vals.Ca/100;
+        const needPct = Math.min(room(f), Math.ceil((falt/gainPerPct)*10)/10);
+        if(needPct>0){ addSug(f.id, needPct); falt -= needPct*gainPerPct; }
+      });
+      if(falt>0) txt += `<p>• Calcio: aún faltan ≈ ${falt.toFixed(3)} %.</p>`;
+    }
+    if(d.k==='Pd'){
+      let falt = d.falta;
+      const lista = cand(['fdical']);
+      lista.forEach(f=>{
+        if(falt<=0) return;
+        const needPct = Math.min(room(f), Math.ceil((falt/(f.vals.Pdisp/100))*10)/10);
+        if(needPct>0){ addSug(f.id, needPct); falt -= needPct*(f.vals.Pdisp/100); }
+      });
+      if(falt>0) txt += `<p>• Fósforo disp.: aún faltan ≈ ${falt.toFixed(3)} % (revisa fosfatos).</p>`;
+    }
+    if(d.k==='Na'){
+      let falt = d.falta;
+      const lista = cand(['sal']);
+      lista.forEach(f=>{
+        if(falt<=0) return;
+        const needPct = Math.min(room(f), Math.ceil((falt/(f.vals.Na/100))*10)/10);
+        if(needPct>0){ addSug(f.id, needPct); falt -= needPct*(f.vals.Na/100); }
+      });
+      if(falt>0) txt += `<p>• Sodio: aún faltan ≈ ${falt.toFixed(3)} %.</p>`;
+    }
+  });
+
+  // construir lista legible
+  let acc = {};
+  sugerenciasAplicables.forEach(s=>{ acc[s.id]=(acc[s.id]||0)+s.deltaPct; });
+  let lines = Object.entries(acc).map(([id,dp])=>{
+    const f = filas.find(x=>x.id===id);
+    const kg = (dp*totalKg/100);
+    return `<li>Subir <b>${f.n}</b> en <b>${dp.toFixed(1)} %</b> (~${kg.toFixed(2)} kg) · €/${(f.precio||0).toFixed(2)}/kg</li>`;
+  });
+  if(lines.length===0 && deficits.length===0){
+    sugBody.innerHTML = `<p>✅ Todo cumple. No hay ajustes necesarios.</p>`;
+  }else{
+    sugBody.innerHTML = (lines.length? `<ul>${lines.join('')}</ul>` : `<p>No hubo candidatos disponibles o límites alcanzados.</p>`) + (txt?`<div class="mini" style="margin-top:8px">${txt}</div>`:'');
+  }
+  modal.style.display='flex';
+};
+function cerrarModal(){ modal.style.display='none'; }
+document.getElementById('aplicarSug').onclick = ()=>{
+  if(!sugerenciasAplicables || !sugerenciasAplicables.length) return cerrarModal();
+  const limMap = getLimitesActuales();
+  const expert = document.getElementById('expert')?.checked;
+  sugerenciasAplicables.forEach(s=>{
+    const f = filas.find(x=>x.id===s.id); if(!f) return;
+    const lim = limMap[f.id] || {min:0,max:100};
+    const to = expert ? f.pct + s.deltaPct : Math.min(lim.max, f.pct + s.deltaPct);
+    f.pct = to;
+  });
+  cerrarModal();
+  render();
+};
 
 // ===== Eventos =====
 document.getElementById('totalKg').addEventListener('input',e=>{
