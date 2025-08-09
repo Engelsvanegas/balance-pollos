@@ -65,9 +65,13 @@
         <button class="btn out" id="autocompletar">Auto-completar con Maíz</button>
         <button class="btn out" id="normalizar">Normalizar %</button>
         <button class="btn" id="descargar">Descargar PDF</button>
+        <label class="pill" style="margin-top:8px;display:inline-flex">
+          <input type="checkbox" id="expert" style="margin-right:6px">
+          Modo experto (sin límites)
+        </label>
       </div>
 
-      <p class="hint" style="margin-top:10px">Tip: edita los **%** y verás los **kg** al instante. Pulsa “Editar valores” si tu ingrediente local tiene otras garantías.</p>
+      <p class="hint" style="margin-top:10px">Tip: edita los % y verás los kg al instante. “Editar valores” si tu ingrediente local tiene otras garantías.</p>
     </div>
 
     <div class="panel">
@@ -116,17 +120,58 @@ const LIB = [
  {id:'premix', n:'Premezcla vit-min', E:0, Prot:0, Lys:0, MetCys:0, Ca:0.00, Pdisp:0.00, Na:0.00}
 ];
 
-// ===== Requerimientos por etapa (NRC base; redondeados prácticos) =====
+// ===== Requerimientos por etapa (referencia práctica) =====
 const REQ = {
  starter:{Et:'Inicio', EM:2900, Prot:23.0, Lys:1.10, MetCys:0.90, Ca:1.00, Pdisp:0.45, Na:0.20},
  grower:{Et:'Crecimiento', EM:3000, Prot:21.0, Lys:1.00, MetCys:0.80, Ca:0.90, Pdisp:0.40, Na:0.18},
  finisher:{Et:'Finalización', EM:3100, Prot:19.0, Lys:0.90, MetCys:0.75, Ca:0.85, Pdisp:0.38, Na:0.16}
 };
 
+// ===== Límites por especie/etapa =====
+const LIMITES = {
+  pollo: {
+    starter: { // 0–3 semanas
+      maiz:{min:40,max:60,nota:"Energía 40–60%"},
+      soya44:{min:28,max:45,nota:"Proteína 28–45%"},
+      pescado:{min:0,max:6,nota:"Inicio 0–6%"},
+      aceite:{min:0,max:4,nota:"Aceite 0–4%"},
+      caco3:{min:0.8,max:1.5,nota:"Ca 0.8–1.5%"},
+      fdical:{min:0.6,max:1.2,nota:"P disp. 0.6–1.2%"},
+      sal:{min:0.25,max:0.5,nota:"Na/Cl 0.25–0.5%"},
+      premix:{min:0.5,max:1.0,nota:"Vit-Min 0.5–1.0%"}
+    },
+    grower: { // 3–6 semanas
+      maiz:{min:45,max:65,nota:"Energía 45–65%"},
+      soya44:{min:24,max:40,nota:"Proteína 24–40%"},
+      pescado:{min:0,max:3,nota:"Crec. 0–3%"},
+      aceite:{min:0,max:5,nota:"Aceite 0–5%"},
+      caco3:{min:0.7,max:1.3,nota:"Ca 0.7–1.3%"},
+      fdical:{min:0.5,max:1.1,nota:"P disp. 0.5–1.1%"},
+      sal:{min:0.25,max:0.5,nota:"Na/Cl 0.25–0.5%"},
+      premix:{min:0.5,max:1.0,nota:"Vit-Min 0.5–1.0%"}
+    },
+    finisher: { // 6+ semanas
+      maiz:{min:50,max:70,nota:"Energía 50–70%"},
+      soya44:{min:18,max:35,nota:"Proteína 18–35%"},
+      pescado:{min:0,max:1,nota:"Final 0–1%"},
+      aceite:{min:0,max:5,nota:"Aceite 0–5%"},
+      caco3:{min:0.6,max:1.2,nota:"Ca 0.6–1.2%"},
+      fdical:{min:0.4,max:1.0,nota:"P disp. 0.4–1.0%"},
+      sal:{min:0.25,max:0.5,nota:"Na/Cl 0.25–0.5%"},
+      premix:{min:0.5,max:1.0,nota:"Vit-Min 0.5–1.0%"}
+    }
+  }
+};
+let especie = 'pollo';
+
 // ===== Estado de la fórmula =====
 let totalKg = 100;
 let etapa = 'starter';
 let filas = []; // {id, n, pct, vals:{E,Prot,Lys,MetCys,Ca,Pdisp,Na}}
+
+function getLimitesActuales(){
+  return LIMITES[especie][etapa] || {};
+}
 
 // fórmula estándar
 function presetStd(){
@@ -168,14 +213,16 @@ function agregar(id){
 // ===== Tabla =====
 const tBody=document.getElementById('tBody');
 function render(){
- // filas
  tBody.innerHTML='';
+ const limMap = getLimitesActuales();
+
  filas.forEach((f,i)=>{
    const kg = (f.pct*totalKg/100);
+   const lim = limMap[f.id] || {min:0, max:100, nota:""};
    const tr=document.createElement('tr');
    tr.innerHTML = `
-     <td>${f.n}</td>
-     <td><input type="number" min="0" step="0.1" value="${f.pct}" style="width:90px" oninput="chgPct(${i},this.value)"></td>
+     <td>${f.n}<div class="mini" style="color:#666">${lim.nota}</div></td>
+     <td><input type="number" min="${lim.min}" max="${lim.max}" step="0.1" value="${f.pct}" style="width:90px" oninput="chgPct(${i},this.value)"></td>
      <td>${kg.toFixed(2)}</td>
      <td>${f.vals.E}</td>
      <td>${f.vals.Prot}</td>
@@ -190,12 +237,21 @@ function render(){
      </td>`;
    tBody.appendChild(tr);
  });
- // sumas y estado
  actualizarEstado();
- // comparación con requerimiento
  renderReq();
 }
-function chgPct(i,v){ filas[i].pct = Number(v||0); render(); }
+function chgPct(i,v){
+  const x = Number(v||0);
+  const limMap = getLimitesActuales();
+  const lim = limMap[filas[i].id] || {min:0,max:100};
+  const expert = document.getElementById('expert')?.checked;
+  if(!expert){
+    if(x < lim.min){ filas[i].pct = lim.min; alert(`Mínimo ${filas[i].n}: ${lim.min}%`); render(); return; }
+    if(x > lim.max){ filas[i].pct = lim.max; alert(`Máximo ${filas[i].n}: ${lim.max}%`); render(); return; }
+  }
+  filas[i].pct = x;
+  render();
+}
 function quitar(i){ filas.splice(i,1); render(); }
 function editar(i){
   const f=filas[i];
@@ -240,7 +296,15 @@ document.getElementById('autocompletar').onclick = ()=>{
   if(falt<=0) return render();
   let maiz = filas.find(f=>f.id==='maiz');
   if(!maiz){ maiz = addRow('maiz',0); filas.push(maiz); }
-  maiz.pct += falt;
+  // respetar máximo si no es experto
+  const expert = document.getElementById('expert')?.checked;
+  if(!expert){
+    const lim = getLimitesActuales().maiz || {min:0,max:100};
+    const posible = Math.min(falt, Math.max(0, lim.max - (maiz.pct||0)));
+    maiz.pct += posible;
+  } else {
+    maiz.pct += falt;
+  }
   render();
 };
 // Normalizar %
@@ -253,7 +317,6 @@ document.getElementById('normalizar').onclick = ()=>{
 
 // ===== Cálculo de aporte y comparación =====
 function aporte(){
-  // promedio ponderado por % (base 100 kg de dieta)
   const E   = sumBy(f=>f.vals.E);
   const Prot= sumBy(f=>f.vals.Prot);
   const Lys = sumBy(f=>f.vals.Lys);
@@ -263,7 +326,6 @@ function aporte(){
   const Na  = sumBy(f=>f.vals.Na);
   return {E,Prot,Lys,MC,Ca,Pd,Na};
   function sumBy(sel){
-    // promedio según %; energía se expresa kcal/kg
     const sumPct = filas.reduce((s,f)=>s+Number(f.pct||0),0)||1;
     return filas.reduce((s,f)=>s + (Number(f.pct||0)/100)*sel(f), 0) * (100/sumPct);
   }
@@ -300,7 +362,8 @@ document.getElementById('totalKg').addEventListener('input',e=>{
  totalKg = Math.max(1, Number(e.target.value||100)); render();
 });
 document.getElementById('etapa').addEventListener('change',e=>{
- etapa = e.target.value; renderReq();
+ etapa = e.target.value;
+ render(); // refresca límites y tabla
 });
 document.getElementById('busca').addEventListener('input',e=>{
  renderLista(e.target.value);
